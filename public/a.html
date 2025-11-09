@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ec13!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .post {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .author {
+            font-weight: bold;
+        }
+        .content {
+            margin-top: 10px;
+        }
+        .timestamp {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .deleteButton {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>/a/: Anime&nbsp;& Manga</h1><br>
+        <a href="a.html">a</a> <a href="aco.html">aco</a> <a href="c.html">c</a> <a href="f.html">f</a> <a href="fet.html">fet</a> <a href="h.html">h</a> <a href="hn.html">hn</a> <a href="m.html">m</a> <a href="meme.html">meme</a> <a href="p.html">p</a> <a href="pet.html">pet</a> <a href="r.html">r</a> <a href="rel.html">rel</a> <a href="sci.html">sci</a> <a href="t.html">t</a> <a href="tv.html">tv</a> <a href="vg.html">vg</a>        
+        <form id="postForm">
+            <input type="text" id="author" placeholder="Your Name" required>
+            <textarea id="content" placeholder="Post content" required></textarea>
+            <button type="submit">Post</button>
+        </form>
+
+        <!-- Post List -->
+        <div id="posts"></div>
+    </div>
+
+    <script>
+        const category = 'a';  // This will change depending on the HTML file
+
+        let lastPostTime = 0; // Track the time of the last post
+
+        // Fetch and display posts
+        function loadPosts() {
+            fetch(`/posts/${category}`)
+                .then(response => response.json())
+                .then(posts => {
+                    const postsContainer = document.getElementById('posts');
+                    postsContainer.innerHTML = '';  // Clear the posts container before reloading posts
+
+                    // Sort posts by timestamp in reverse chronological order
+                    posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    posts.forEach(post => {
+                        const postDiv = document.createElement('div');
+                        postDiv.classList.add('post');
+                        const timestamp = new Date(post.timestamp).toLocaleString();
+                        postDiv.innerHTML = `
+                            <div class="author">${post.author}</div>
+                            <div class="content">${renderBBCode(post.content)}</div>
+                            <div class="timestamp">Posted on: ${timestamp}</div>
+                            <button class="deleteButton" data-post-id="${post.id}">Delete Post</button>
+                        `;
+                        postsContainer.appendChild(postDiv);
+                    });
+
+                    // Add event listeners for delete buttons
+                    const deleteButtons = document.querySelectorAll('.deleteButton');
+                    deleteButtons.forEach(button => {
+                        button.addEventListener('click', function() {
+                            const postId = this.getAttribute('data-post-id');
+                            const password = prompt("Enter the category password to delete this post:");
+
+                            if (password) {
+                                // Send delete request
+                                fetch('/delete-post', {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ id: postId, category, password })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.message) {
+                                        loadPosts();  // Reload posts after deletion
+                                        alert(data.message);
+                                    } else if (data.error) {
+                                        alert(data.error);
+                                    }
+                                });
+                            }
+                        });
+                    });
+                });
+        }
+
+        // Render BBCode to HTML
+        function renderBBCode(text) {
+            // Convert BBCode to HTML
+            text = text.replace(/\[u](.*?)\[\/u]/g, '<u>$1</u>');  // Underline
+            text = text.replace(/\[b](.*?)\[\/b]/g, '<b>$1</b>');  // Bold
+            text = text.replace(/\[i](.*?)\[\/i]/g, '<i>$1</i>');  // Italic
+            text = text.replace(/\[url="(.*?)"](.*?)\[\/url]/g, '<a href="$1">$2</a>');  // URL
+            text = text.replace(/\[audio="(.*?)"](.*?)\[\/audio]/g, '<audio controls src="$1">$2</audio>');  // Audio
+            text = text.replace(/\[img="(.*?)"\]/g, '<img src="$1" alt="Image">');  // Image
+            text = text.replace(/\[color="(.*?)"](.*?)\[\/color]/g, '<span style="color:$1">$2</span>');  // Color
+            text = text.replace(/\[br\]/g, '<br>');  // Line breaks
+            
+            return text;
+        }
+
+        // Handle post submission
+        document.getElementById('postForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const currentTime = Date.now();
+
+            // Check if 10 seconds have passed since the last post
+            if (currentTime - lastPostTime < 5000) {
+                alert("You must wait 5 seconds before posting again.");
+                return;
+            }
+
+            const author = document.getElementById('author').value;
+            const content = document.getElementById('content').value;
+
+            fetch('/add-post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ category, author, content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadPosts();  // Reload posts after submitting
+                lastPostTime = currentTime;  // Update the last post time
+            });
+        });
+
+        // Reload posts every second (1000 ms)
+        setInterval(loadPosts, 1000);  // Call loadPosts every second
+
+        loadPosts();  // Load posts when page is loaded
+    </script>
+</body>
+</html>
